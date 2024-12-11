@@ -1,58 +1,60 @@
+// server.js - серверная часть для симуляции данных
 const express = require('express');
-const faker = require('faker');
+const http = require('http');
+const WebSocket = require('ws');
+const cors = require('cors');
 
 const app = express();
-const port = process.env.PORT || 3000;
+app.use(cors());
 
-// Массив для хранения данных о судах
-let ships = [];
+// Обслуживание статичных файлов для клиента
+app.use(express.static('public'));
 
-// Генерация случайных данных о судах
-function generateShipData() {
-    const ship = {
-        id: faker.datatype.uuid(),
-        name: faker.company.companyName(),
-        location: {
-            latitude: parseFloat((Math.random() * (90 - (-90)) + (-90)).toFixed(6)),
-            longitude: parseFloat((Math.random() * (180 - (-180)) + (-180)).toFixed(6)),
-        },
-        cargoStatus: faker.random.arrayElement(['Full', 'Partially Full', 'Empty']),
-        lastUpdated: new Date().toISOString(),
-    };
-    return ship;
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+// Генерация случайных данных для судов
+const ships = Array.from({ length: 10 }, (_, i) => ({
+  id: `ship-${i + 1}`,
+  name: `Ship ${i + 1}`,
+  latitude: 40 + Math.random() * 20,
+  longitude: -70 + Math.random() * 20,
+  cargoStatus: Math.random() > 0.5 ? 'Loaded' : 'Empty',
+}));
+
+// Обновление данных судов
+function updateShipData() {
+  ships.forEach((ship) => {
+    ship.latitude += (Math.random() - 0.5) * 0.1;
+    ship.longitude += (Math.random() - 0.5) * 0.1;
+    ship.cargoStatus = Math.random() > 0.5 ? 'Loaded' : 'Empty';
+  });
 }
 
-// Инициализация списка судов
-for (let i = 0; i < 10; i++) {
-    ships.push(generateShipData());
+// Отправка данных через WebSocket
+function broadcastShipData() {
+  const data = JSON.stringify(ships);
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
 }
 
-// Эндпоинт для получения списка всех судов
-app.get('/api/ships', (req, res) => {
-    res.json(ships);
+setInterval(() => {
+  updateShipData();
+  broadcastShipData();
+}, 5000);
+
+wss.on('connection', (ws) => {
+  console.log('Client connected');
+  ws.send(JSON.stringify(ships));
+
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
 });
 
-// Эндпоинт для получения информации о судне по ID
-app.get('/api/ships/:id', (req, res) => {
-    const ship = ships.find(s => s.id === req.params.id);
-    if (ship) {
-        res.json(ship);
-    } else {
-        res.status(404).json({ error: 'Ship not found' });
-    }
-});
-
-// Эндпоинт для обновления данных о судне
-app.post('/api/ships/:id', (req, res) => {
-    const shipIndex = ships.findIndex(s => s.id === req.params.id);
-    if (shipIndex !== -1) {
-        ships[shipIndex] = { ...ships[shipIndex], ...generateShipData() };
-        res.json(ships[shipIndex]);
-    } else {
-        res.status(404).json({ error: 'Ship not found' });
-    }
-});
-
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+server.listen(80, () => {
+  console.log('Server is running on port 80');
 });
