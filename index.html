@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Морские Суда</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .ship-list { list-style-type: none; padding: 0; }
+        .ship { border: 1px solid #ccc; padding: 10px; margin: 5px 0; }
+        .ship h3 { margin: 0; }
+        .ship .cargo-status { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Отслеживание Морских Судов</h1>
+    <ul id="ship-list" class="ship-list">
+        <!-- Здесь будут отображаться суда -->
+    </ul>
+
+    <script>
+        // Функция для получения данных о судах
+        async function fetchShips() {
+            const response = await fetch('/api/ships');
+            const ships = await response.json();
+            const shipList = document.getElementById('ship-list');
+            shipList.innerHTML = '';  // Очистить список
+
+            ships.forEach(ship => {
+                const shipItem = document.createElement('li');
+                shipItem.classList.add('ship');
+                shipItem.innerHTML = `
+                    <h3>${ship.name}</h3>
+                    <p>Местоположение: ${ship.location.latitude}, ${ship.location.longitude}</p>
+                    <p class="cargo-status">Статус груза: ${ship.cargoStatus}</p>
+                    <p>Последнее обновление: ${new Date(ship.lastUpdated).toLocaleString()}</p>
+                `;
+                shipList.appendChild(shipItem);
+            });
+        }
+
+        // Загружаем данные о судах при загрузке страницы
+        window.onload = fetchShips;
+    </script>
+</body>
+</html>
